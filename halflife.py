@@ -63,33 +63,38 @@ class calculateHalfLife:
                 ylog.append(numpy.log(y[i]))
                 xlog.append(x[i])
 
-        xlin = xlog[30:1200]
-        ylin = ylog[30:1200]
+        xlin = xlog[40:1200]
+        ylin = ylog[40:1200]
             
         # polynomial fit, order 1
         pcoeffs = numpy.polyfit(xlin, ylin, 1)
         tau = -1./pcoeffs[0]
-        print pcoeffs
-        print "tau =",tau
-        print "T =",tau*numpy.log(2)
         yfit = [i*pcoeffs[0]+pcoeffs[1] for i in xlog]
+
+        # plot polynomial fit
+        # plot the log data and the whole fit
         plt.plot(
             xlog,ylog,'r.',
             xlog,yfit,'k--',linewidth=2.0
         )
-        plt.axis([0,.15E-5,0,8])
+        plt.axis([0,.15E-5,0,9])
         plt.show()
 
-    def plot_data(self, xvals, yvals):
-        """
-            plot any dataset given by x and y
-        """
+        # plot only the linear part of the log data with the fit
+        yfit = [i*pcoeffs[0]+pcoeffs[1] for i in xlin]
         plt.plot(
-            xvals,
-            yvals,
-            'r-',
+            xlin,ylin,'r.',
+            xlin,yfit,'k--',linewidth=2.0
         )
         plt.show()
+        return tau
+
+    def get_lifetime_from_tau(self,tau):
+        """
+            given input tau, compute lifetime
+        """
+        print "tau =",tau
+        print "T =",tau*numpy.log(2)
 
 if __name__ == '__main__':
     conversionFactorFilename = "conversion_factor.csv"
@@ -121,19 +126,18 @@ if __name__ == '__main__':
     )
 
     # join data files on channel
-    # normalize data file
-    time_axis = foo.convert_channels_to_time(
-        channels2,
-        time_per_channel,
-    )
-    # plot the data and analyze
-#    foo.plot_data(
-#        channels2,
-#        counts2,
-#    )
-
-    foo.polynomial_fit(
-        time_axis,
-        counts2,
-    )
-
+    if (channels4==channels2) and (channels3==channels2):
+        data_counts = [counts2[i]+counts3[i]+counts4[i] for i in range(len(counts2))]
+        # normalize data file
+        time_axis = foo.convert_channels_to_time(
+            channels2,
+            time_per_channel,
+        )
+        # polynomial fit
+        tau = foo.polynomial_fit(
+            time_axis,
+            data_counts,
+        )
+        foo.get_lifetime_from_tau(tau)
+    else:
+        print "Couldn't join data files. Try again."
