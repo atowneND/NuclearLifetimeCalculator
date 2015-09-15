@@ -8,10 +8,6 @@ import matplotlib.pyplot as plt
 
 class calculateHalfLife:
     # __init__
-    # normalize_data
-    # plot_data
-    # calculate_quantum_bins_histogram
-    # process_semiclassical_data
 
     def __init__(self, **kwargs):
         self.__dict__.update(**kwargs)
@@ -66,40 +62,20 @@ class calculateHalfLife:
             if (y[i]!=0):
                 ylog.append(numpy.log(y[i]))
                 xlog.append(x[i])
-#        self.plot_data(
-#            x,
-#            y,
-#        )
-#        self.plot_data(
-#            xlog,
-#            ylog,
-#        )
-        self.plot_data(
-            xlog[30:1200],
-            ylog[30:1200],
-        )
+
+        xlin = xlog[30:1200]
+        ylin = ylog[30:1200]
             
-        # least squares fit
-        def lin_fit(x, a, b):
-            return a * x + b
-        def log_fit(x, a, b, t):
-            return a*numpy.exp(-x/t)+b
-        popt, pcov = scipy.optimize.curve_fit(
-            lin_fit,
-            xlog[30:1200],
-            ylog[30:1200],
+        # polynomial fit, order 1
+        pcoeffs = numpy.polyfit(xlin, ylin, 1)
+        print pcoeffs
+        yfit = [i*pcoeffs[0]+pcoeffs[1] for i in xlog]
+        plt.plot(
+            xlog,ylog,'r.',
+            xlog,yfit,'k--',linewidth=2.0
         )
-        print popt, pcov
-#        popt, pcov = scipy.optimize.curve_fit(
-#            log_fit,
-#            x,
-#            y,
-#        )
-#        self.plot_data(
-#            xlog,
-#            ylog,
-#        )
-#        print popt, pcov
+        plt.axis([0,4000,0,8])
+        plt.show()
 
     def plot_data(self, xvals, yvals):
         """
