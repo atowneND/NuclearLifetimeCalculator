@@ -51,7 +51,7 @@ class calculateHalfLife:
         time_axis = [i * time_per_channel for i in channels]
         return time_axis
         
-    def calculate_halflife(self, x, y):
+    def polynomial_fit(self, x, y):
         """
             call the other methods and compute half-life
         """
@@ -68,13 +68,16 @@ class calculateHalfLife:
             
         # polynomial fit, order 1
         pcoeffs = numpy.polyfit(xlin, ylin, 1)
+        tau = -1./pcoeffs[0]
         print pcoeffs
+        print "tau =",tau
+        print "T =",tau*numpy.log(2)
         yfit = [i*pcoeffs[0]+pcoeffs[1] for i in xlog]
         plt.plot(
             xlog,ylog,'r.',
             xlog,yfit,'k--',linewidth=2.0
         )
-        plt.axis([0,4000,0,8])
+        plt.axis([0,.15E-5,0,8])
         plt.show()
 
     def plot_data(self, xvals, yvals):
@@ -129,8 +132,8 @@ if __name__ == '__main__':
 #        counts2,
 #    )
 
-    foo.calculate_halflife(
-        channels2,
+    foo.polynomial_fit(
+        time_axis,
         counts2,
     )
 
