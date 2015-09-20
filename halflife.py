@@ -51,6 +51,33 @@ class calculateHalfLife:
         time_axis = [i * time_per_channel for i in channels]
         return time_axis
         
+    def log_fit(self, x, y):
+        """ 
+            from data, compute half-life
+        """
+        def func(x, a, b):
+            return a*numpy.exp(-b*x)
+
+        popt, pcov = scipy.optimize.curve_fit(func, numpy.asarray(x), numpy.asarray(y))
+        tau = 1./popt[1]
+        self.get_lifetime_from_tau(tau)
+
+    def set_window(self, x, y):
+        """
+            return window for fit
+        """
+        channels = x[150:1200]
+        counts = y[150:1200]
+        return channels, counts
+
+    def get_noise_level(self, y):
+        """
+            return window for noise data
+        """
+        counts = y[4500:7500]
+        avg_noise = numpy.mean(counts)
+        return avg_noise 
+
     def polynomial_fit(self, x, y):
         """
             call the other methods and compute half-life
@@ -71,22 +98,6 @@ class calculateHalfLife:
         tau = -1./pcoeffs[0]
         yfit = [i*pcoeffs[0]+pcoeffs[1] for i in xlog]
 
-        # plot polynomial fit
-        # plot the log data and the whole fit
-        plt.plot(
-            xlog,ylog,'r.',
-            xlog,yfit,'k--',linewidth=2.0
-        )
-        plt.axis([0,.15E-5,0,9])
-        plt.show()
-
-        # plot only the linear part of the log data with the fit
-        yfit = [i*pcoeffs[0]+pcoeffs[1] for i in xlin]
-        plt.plot(
-            xlin,ylin,'r.',
-            xlin,yfit,'k--',linewidth=2.0
-        )
-        plt.show()
         return tau
 
     def get_lifetime_from_tau(self,tau):
@@ -133,11 +144,11 @@ if __name__ == '__main__':
             channels2,
             time_per_channel,
         )
-        # polynomial fit
-        tau = foo.polynomial_fit(
-            time_axis,
-            data_counts,
-        )
-        foo.get_lifetime_from_tau(tau)
     else:
         print "Couldn't join data files. Try again."
+        exit
+    
+    
+    noise = foo.get_noise_level(data_counts)
+    t_norm, counts_norm = foo.set_window(time_axis,data_counts)
+    foo.log_fit(t_norm,counts_norm - noise)
