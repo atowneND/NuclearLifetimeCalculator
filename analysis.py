@@ -6,18 +6,11 @@ import numpy
 import csv
 import matplotlib.pyplot as plt
 
-class calculateHalfLife:
+class modernPhysicsLabData:
     # __init__
     # read_CSV - read channels,counts
-    # find_time_per_channel - using a weighted average, find center of peaks
-    # and slope of line through those peaks
+    # peaks2line_weighted_avg - using a weighted average, find center of peaks and slope of line through those peaks
     # convert_channels_to_time - scale channels to time
-    # log_fit
-    # plot_log_fit
-    # set_window
-    # get_noise_level
-    # get_lifetime_from_tau
-    # get_data
 
     def __init__(self, **kwargs):
         self.__dict__.update(**kwargs)
@@ -41,7 +34,7 @@ class calculateHalfLife:
 
         return channel, counts
 
-    def find_time_per_channel(self,channels,counts,calibration_constant):
+    def peaks2line_weighted_avg(self,channels,counts,calibration_constant):
         """
             find normalization factor
         """
@@ -79,7 +72,7 @@ class calculateHalfLife:
         # linear regression fit
         slope, intercept, r_val, p_val, std_err = scipy.stats.linregress(peak_channels,time_list)
 
-        return slope, std_err
+        return slope, intercept, std_err
 
     def convert_channels_to_time(self,channels,time_per_channel):
         """
@@ -87,6 +80,18 @@ class calculateHalfLife:
         """
         time_axis = [i * time_per_channel for i in channels]
         return time_axis
+
+class nuclearLifetime:
+    # __init__
+    # log_fit
+    # plot_log_fit
+    # set_window
+    # get_noise_level
+    # get_lifetime_from_tau
+    # get_data
+
+    def __init__(self, **kwargs):
+        self.__dict__.update(**kwargs)
 
     def log_fit(self, x, y):
         """ 
@@ -141,21 +146,21 @@ class calculateHalfLife:
         print "tau =",tau
         print "T =",tau*numpy.log(2)
 
-    def get_data(self):
+    def get_data(self,lab):
         """
             read data and join
         """
         # read data file
         dataFilename = "nuclife_data/Take2_readable.csv"
-        channels2, counts2 = foo.read_CSV(
+        channels2, counts2 = lab.read_CSV(
                 dataFilename,
                 )
         dataFilename = "nuclife_data/Take3_readable.csv"
-        channels3, counts3 = foo.read_CSV(
+        channels3, counts3 = lab.read_CSV(
                 dataFilename,
                 )
         dataFilename = "nuclife_data/Take4_readable.csv"
-        channels4, counts4 = foo.read_CSV(
+        channels4, counts4 = lab.read_CSV(
                 dataFilename,
                 )
 
@@ -163,7 +168,7 @@ class calculateHalfLife:
         if (channels4==channels2) and (channels3==channels2):
             data_counts = [counts2[i]+counts3[i]+counts4[i] for i in range(len(counts2))]
             # normalize data file
-            time_axis = foo.convert_channels_to_time(
+            time_axis = lab.convert_channels_to_time(
                     channels2,
                     time_per_channel,
                     )
@@ -177,52 +182,53 @@ class speedOfLight:
     def __init__(self, **kwargs):
         self.__dict__.update(**kwargs)
 
-    def run_light_speed(self,data):
+    def run_light_speed(self,data,lab):
         print "here"
         # read calibration file
         conversionFactorFilename = "lightspeed_data/conversion_factor.csv"
-        channel, counts = data.read_CSV(conversionFactorFilename)
+        channel, counts = lab.read_CSV(conversionFactorFilename)
 
         # find conversion
         mult_const = 0.01E-6 # 0.01E-6 usec
-        time_per_channel, calibration_error = data.find_time_per_channel(channel,counts,mult_const)
+        time_per_channel, calibration_intercept, calibration_error = lab.peaks2line_weighted_avg(channel,counts,mult_const)
 
         # read data
         datafilename = "lightspeed_data/Five_Peaks_readable.csv"
-        data_channels, data_counts = data.read_CSV(datafilename)
-        data_time = data.convert_channels_to_time(data_channels, time_per_channel)
+        data_channels, data_counts = lab.read_CSV(datafilename)
+        data_time = lab.convert_channels_to_time(data_channels, time_per_channel)
         plt.plot(data_time,data_counts)
         plt.show()
 
         # weighted average of five peaks
-        t_center, data_error = data.find_time_per_channel(data_time,data_counts,1)
+        t_center, data_intercep, data_error = lab.peaks2line_weighted_avg(data_time,data_counts,1)
         # error
 
 if __name__ == '__main__':
     conversionFactorFilename = "nuclife_data/conversion_factor.csv"
     # initialize
     # can only run light speed, not nuclear lifetime
-    foo = calculateHalfLife()
-    #bar = speedOfLight()
-    #bar.run_light_speed(foo)
+    nuclife = nuclearLifetime()
+    lab = modernPhysicsLabData()
+    #light = speedOfLight()
+    #light.run_light_speed(nuclife,lab)
 
 ###############################################################
 # MOVE TO FUNCTION
-#    # read file for normalization
-#    channels, counts = foo.read_CSV( 
-#            conversionFactorFilename,
-#            )
-#
-#    # find normalization
-#    mult_const = 0.16E-6 # 0.16 usec
-#    time_per_channel, calibration_error = foo.find_time_per_channel(
-#            channels,
-#            counts,
-#            mult_const,
-#            )
-#
-#    time_axis, data_counts = foo.get_data()
-#    noise = foo.get_noise_level(data_counts)
-#    t_norm, counts_norm = foo.set_window(time_axis,data_counts)
-#    popt , pcov = foo.log_fit(t_norm,counts_norm - noise)
-##    foo.plot_log_fit(time_axis,data_counts,popt,pcov,noise)
+    # read file for normalization
+    channels, counts = lab.read_CSV( 
+            conversionFactorFilename,
+            )
+
+    # find normalization
+    mult_const = 0.16E-6 # 0.16 usec
+    time_per_channel, calibration_intercept, calibration_error = lab.peaks2line_weighted_avg(
+            channels,
+            counts,
+            mult_const,
+            )
+
+    time_axis, data_counts = nuclife.get_data(lab)
+    noise = nuclife.get_noise_level(data_counts)
+    t_norm, counts_norm = nuclife.set_window(time_axis,data_counts)
+    popt , pcov = nuclife.log_fit(t_norm,counts_norm - noise)
+    nuclife.plot_log_fit(time_axis,data_counts,popt,pcov,noise)
