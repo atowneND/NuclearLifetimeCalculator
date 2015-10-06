@@ -61,7 +61,7 @@ class modernPhysicsLabData:
                     peak_sum = 0
                     ctr = 0
                 last_zero = i
-
+        
         # make this an argument passed to this method!!!!
         #calibration_constant = 0.16E-6 # 0.16 usec
         #calibration_constant = 0.01E-6 # 0.01 usec
@@ -72,7 +72,7 @@ class modernPhysicsLabData:
         # linear regression fit
         slope, intercept, r_val, p_val, std_err = scipy.stats.linregress(peak_channels,time_list)
 
-        return slope, intercept, std_err
+        return slope, intercept, std_err, peak_channels
 
     def convert_channels_to_time(self,channels,time_per_channel):
         """
@@ -182,53 +182,58 @@ class speedOfLight:
     def __init__(self, **kwargs):
         self.__dict__.update(**kwargs)
 
-    def run_light_speed(self,data,lab):
-        print "here"
+    def run_light_speed(self,lab):
         # read calibration file
         conversionFactorFilename = "lightspeed_data/conversion_factor.csv"
         channel, counts = lab.read_CSV(conversionFactorFilename)
 
         # find conversion
         mult_const = 0.01E-6 # 0.01E-6 usec
-        time_per_channel, calibration_intercept, calibration_error = lab.peaks2line_weighted_avg(channel,counts,mult_const)
+        time_per_channel, calibration_intercept, calibration_error, calibration_peaks = lab.peaks2line_weighted_avg(channel,counts,mult_const)
 
         # read data
         datafilename = "lightspeed_data/Five_Peaks_readable.csv"
         data_channels, data_counts = lab.read_CSV(datafilename)
         data_time = lab.convert_channels_to_time(data_channels, time_per_channel)
-        plt.plot(data_time,data_counts)
-        plt.show()
+        #plt.plot(data_time,data_counts)
+        #plt.show()
 
         # weighted average of five peaks
-        t_center, data_intercep, data_error = lab.peaks2line_weighted_avg(data_time,data_counts,1)
+        t_center, data_intercept, data_error, data_channel_peaks = lab.peaks2line_weighted_avg(data_channels,data_counts,1)
+        data_time_peaks = lab.convert_channels_to_time(data_channel_peaks,time_per_channel)
+        plt.plot(data_time_peaks)
+        plt.show()
+        x = numpy.arange(100.0)
+        y = t_center*x + data_intercept
+        plt.plot(x,y)
+        plt.show()
+
+        # channel v time
+#        plt.plot(data_channel_peaks, 
+        # channel v position
         # error
 
 if __name__ == '__main__':
     conversionFactorFilename = "nuclife_data/conversion_factor.csv"
     # initialize
     # can only run light speed, not nuclear lifetime
-    nuclife = nuclearLifetime()
+#    nuclife = nuclearLifetime()
     lab = modernPhysicsLabData()
-    #light = speedOfLight()
-    #light.run_light_speed(nuclife,lab)
+    light = speedOfLight()
+    light.run_light_speed(lab)
 
-###############################################################
-# MOVE TO FUNCTION
-    # read file for normalization
-    channels, counts = lab.read_CSV( 
-            conversionFactorFilename,
-            )
-
-    # find normalization
-    mult_const = 0.16E-6 # 0.16 usec
-    time_per_channel, calibration_intercept, calibration_error = lab.peaks2line_weighted_avg(
-            channels,
-            counts,
-            mult_const,
-            )
-
-    time_axis, data_counts = nuclife.get_data(lab)
-    noise = nuclife.get_noise_level(data_counts)
-    t_norm, counts_norm = nuclife.set_window(time_axis,data_counts)
-    popt , pcov = nuclife.log_fit(t_norm,counts_norm - noise)
-    nuclife.plot_log_fit(time_axis,data_counts,popt,pcov,noise)
+################################################################
+## MOVE TO FUNCTION
+#    # read file for normalization
+#    channels, counts = lab.read_CSV( 
+#            conversionFactorFilename,
+#            )
+#
+#    # find normalization
+#    mult_const = 0.16E-6 # 0.16 usec
+#    time_per_channel, calibration_intercept, calibration_error, calibration_peaks = lab.peaks2line_weighted_avg(channels,counts,mult_const)
+#    time_axis, data_counts = nuclife.get_data(lab)
+#    noise = nuclife.get_noise_level(data_counts)
+#    t_norm, counts_norm = nuclife.set_window(time_axis,data_counts)
+#    popt , pcov = nuclife.log_fit(t_norm,counts_norm - noise)
+#    nuclife.plot_log_fit(time_axis,data_counts,popt,pcov,noise)
