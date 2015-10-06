@@ -8,6 +8,16 @@ import matplotlib.pyplot as plt
 
 class calculateHalfLife:
     # __init__
+    # read_CSV - read channels,counts
+    # find_time_per_channel - using a weighted average, find center of peaks
+    # and slope of line through those peaks
+    # convert_channels_to_time - scale channels to time
+    # log_fit
+    # plot_log_fit
+    # set_window
+    # get_noise_level
+    # get_lifetime_from_tau
+    # get_data
 
     def __init__(self, **kwargs):
         self.__dict__.update(**kwargs)
@@ -31,7 +41,7 @@ class calculateHalfLife:
 
         return channel, counts
 
-    def find_time_per_channel(self,channels,counts):
+    def find_time_per_channel(self,channels,counts,calibration_constant):
         """
             find normalization factor
         """
@@ -60,8 +70,8 @@ class calculateHalfLife:
                 last_zero = i
 
         # make this an argument passed to this method!!!!
-        calibration_constant = 0.16E-6 # 0.16 usec
-        calibration_constant = 0.01E-6 # 0.01 usec
+        #calibration_constant = 0.16E-6 # 0.16 usec
+        #calibration_constant = 0.01E-6 # 0.01 usec
 
         # known time between peaks
         time_list = numpy.arange(len(peak_channels))*calibration_constant
@@ -174,14 +184,18 @@ class speedOfLight:
         channel, counts = data.read_CSV(conversionFactorFilename)
 
         # find conversion
-        time_per_channel, calibration_error = data.find_time_per_channel(channel,counts)
+        mult_const = 0.01E-6 # 0.01E-6 usec
+        time_per_channel, calibration_error = data.find_time_per_channel(channel,counts,mult_const)
 
         # read data
         datafilename = "lightspeed_data/Five_Peaks_readable.csv"
         data_channels, data_counts = data.read_CSV(datafilename)
         data_time = data.convert_channels_to_time(data_channels, time_per_channel)
+        plt.plot(data_time,data_counts)
+        plt.show()
 
-        # isolate peaks
+        # weighted average of five peaks
+        t_center, data_error = data.find_time_per_channel(data_time,data_counts,1)
         # error
 
 if __name__ == '__main__':
@@ -189,8 +203,8 @@ if __name__ == '__main__':
     # initialize
     # can only run light speed, not nuclear lifetime
     foo = calculateHalfLife()
-    bar = speedOfLight()
-    bar.run_light_speed(foo)
+    #bar = speedOfLight()
+    #bar.run_light_speed(foo)
 
 ###############################################################
 # MOVE TO FUNCTION
@@ -200,9 +214,11 @@ if __name__ == '__main__':
 #            )
 #
 #    # find normalization
+#    mult_const = 0.16E-6 # 0.16 usec
 #    time_per_channel, calibration_error = foo.find_time_per_channel(
 #            channels,
 #            counts,
+#            mult_const,
 #            )
 #
 #    time_axis, data_counts = foo.get_data()
