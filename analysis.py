@@ -62,10 +62,6 @@ class modernPhysicsLabData:
                     ctr = 0
                 last_zero = i
         
-        # make this an argument passed to this method!!!!
-        #calibration_constant = 0.16E-6 # 0.16 usec
-        #calibration_constant = 0.01E-6 # 0.01 usec
-
         # known time between peaks
         time_list = numpy.arange(len(peak_channels))*calibration_constant
 
@@ -187,31 +183,38 @@ class speedOfLight:
         conversionFactorFilename = "lightspeed_data/conversion_factor.csv"
         channel, counts = lab.read_CSV(conversionFactorFilename)
 
+        # read distance data
+        distanceFilename = "lightspeed_data/distance.csv"
+        peak, distance = lab.read_CSV(distanceFilename)
+
         # find conversion
         mult_const = 0.01E-6 # 0.01E-6 usec
         time_per_channel, calibration_intercept, calibration_error, calibration_peaks = lab.peaks2line_weighted_avg(channel,counts,mult_const)
+
+        # plot channel vs time
+        x = numpy.arange(100.0)
+        y = time_per_channel*x + calibration_intercept
+        t = numpy.arange(len(calibration_peaks)) * mult_const
+        plt.plot( y,x )
+        plt.plot(t,calibration_peaks)
+        plt.show()
 
         # read data
         datafilename = "lightspeed_data/Five_Peaks_readable.csv"
         data_channels, data_counts = lab.read_CSV(datafilename)
         data_time = lab.convert_channels_to_time(data_channels, time_per_channel)
-        #plt.plot(data_time,data_counts)
-        #plt.show()
 
         # weighted average of five peaks
         t_center, data_intercept, data_error, data_channel_peaks = lab.peaks2line_weighted_avg(data_channels,data_counts,1)
         data_time_peaks = lab.convert_channels_to_time(data_channel_peaks,time_per_channel)
-        plt.plot(data_time_peaks)
-        plt.show()
         x = numpy.arange(100.0)
         y = t_center*x + data_intercept
-        plt.plot(x,y)
-        plt.show()
 
-        # channel v time
-#        plt.plot(data_channel_peaks, 
         # channel v position
-        # error
+        
+        #plt.plot(data_channel_peaks,distance)
+        # divide slope of ^ by time_per_channel
+        # error - fit gaussian to five peaks
 
 if __name__ == '__main__':
     conversionFactorFilename = "nuclife_data/conversion_factor.csv"
