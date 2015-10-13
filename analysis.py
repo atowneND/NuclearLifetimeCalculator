@@ -80,18 +80,18 @@ class modernPhysicsLabData:
             
         peak_max = max(all_peak_counts)
         for i in numpy.arange(len(all_peak_channels)):
-            if (all_peak_counts[i] > 0.5 * peak_max):
+            if (all_peak_counts[i] > 0.4 * peak_max):
                 true_peak_channels.append(all_peak_channels[i])
                 true_peak_counts.append(all_peak_counts[i])
 
         npoints = len(true_peak_counts)
         time_list = numpy.arange(len(true_peak_channels))*calibration_constant
-#        time_list = true_peak_channels
 
+#        print npoints
         if (npoints < 3):
             if (npoints == 2):
-                slope = (true_peak_counts[1]-true_peak_counts[0])/(time_list[1]-time_list[0])
-                intercept = true_peak_counts[1]-time_list[1]*slope
+                slope = (time_list[1]-time_list[0])/(true_peak_channels[1]-true_peak_channels[0])
+                intercept = time_list[1]-true_peak_channels[1]*slope
                 r_val = 1
                 std_err = 0
             else:
@@ -99,17 +99,7 @@ class modernPhysicsLabData:
         else:
             # linear regression fit
             slope, intercept, r_val, p_val, std_err = scipy.stats.linregress(true_peak_channels,time_list)
-            print "here"
 
-#        x = numpy.linspace(0,2E-8,1000)
-#        y = slope * x + intercept
-#        plt.plot(time_list, true_peak_counts, 'r.')
-#        plt.show()
-
-        slope = 0
-        intercept=0
-        std_err=0
-        true_peak_channels=0
         return slope, intercept, std_err, true_peak_channels
 
     def convert_channels_to_time(self,channels,time_per_channel):
@@ -227,34 +217,51 @@ class speedOfLight:
         channel, counts = lab.read_CSV(conversionFactorFilename)
 
         # read distance data
-#        distanceFilename = "lightspeed_data/distance.csv"
-#        peak, distance = lab.read_CSV(distanceFilename)
+        distanceFilename = "lightspeed_data/distance.csv"
+        peak, distance = lab.read_CSV(distanceFilename)
 
         # find conversion
         mult_const = 0.01E-6 # 0.01E-6 usec
         time_per_channel, calibration_intercept, calibration_error, calibration_peaks = lab.peaks2line_weighted_avg(channel,counts,mult_const)
+        m_D = 1/time_per_channel
 
-#        # plot channel vs time
-#        x = numpy.arange(100.0)
-#        y = time_per_channel*x + calibration_intercept
-#        t = numpy.arange(len(calibration_peaks)) * mult_const
-#        #plt.plot( y,x )
-#        #plt.plot(t,calibration_peaks)
-#        #plt.show()
-#
+        # plot channel vs time
+        x = numpy.arange(2000)
+        y = time_per_channel*x + calibration_intercept
+        t = numpy.arange(len(calibration_peaks)) * mult_const
+        chvt_fit = plt.plot(y,x,'k-',label='fit')
+        chvt_data = plt.plot(t,calibration_peaks,'r.',label='data')
+        plt.xlabel('Time (s)')
+        plt.ylabel('Channel')
+        plt.title('Channel vs. Time')
+        plt.legend(loc=2)
+        plt.xlim(-0.1*1.2E-8,1.2E-8)
+        plt.ylim(1000,2000)
+#        plt.show()
+
 #        # read data
-#        datafilename = "lightspeed_data/Five_Peaks_readable.csv"
-#        data_channels, data_counts = lab.read_CSV(datafilename)
-#        data_time = lab.convert_channels_to_time(data_channels, time_per_channel)
-#
-#        # weighted average of five peaks
-#        t_center, data_intercept, data_error, data_channel_peaks = lab.peaks2line_weighted_avg(data_channels,data_counts,1)
-#        data_time_peaks = lab.convert_channels_to_time(data_channel_peaks,time_per_channel)
-#        x = numpy.arange(100.0)
-#        y = t_center*x + data_intercept
-#
-#        # channel v position
-#        
+        datafilename = "lightspeed_data/Five_Peaks_readable.csv"
+        data_channels, data_counts = lab.read_CSV(datafilename)
+        data_time = lab.convert_channels_to_time(data_channels, time_per_channel)
+
+        # weighted average of five peaks
+        t_center, data_intercept, data_error, data_channel_peaks = lab.peaks2line_weighted_avg(data_channels,data_counts,1)
+        data_time_peaks = lab.convert_channels_to_time(data_channel_peaks,time_per_channel)
+        x = numpy.arange(100.0)
+        y = t_center*x + data_intercept
+
+#        plt.plot(x,y,'r-')
+#        plt.show()
+
+        # channel v position
+        m_ch_v_pos, a,b,c,d = scipy.stats.linregress(data_channel_peaks,distance)
+        m_S = m_ch_v_pos/100
+        print m_D, m_S, 2 * m_D / m_S
+        plt.plot(distance,data_channel_peaks,'r.')
+        plt.ylabel('Channel')
+        plt.xlabel('Distance (cm)')
+#        plt.show()
+        
 #        #plt.plot(data_channel_peaks,distance)
 #        # divide slope of ^ by time_per_channel
 #        # error - fit gaussian to five peaks
@@ -267,7 +274,7 @@ if __name__ == '__main__':
 #    nuclife = nuclearLifetime()
     lab = modernPhysicsLabData()
     light = speedOfLight()
-#    light.run_light_speed(lab)
+    light.run_light_speed(lab)
 
 ################################################################
 ## MOVE TO FUNCTION
