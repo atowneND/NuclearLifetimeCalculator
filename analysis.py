@@ -297,7 +297,7 @@ class gammaSpectroscopy:
             print filename_list[fd]
             if (fd == 0): #Eu
                 x=0
-                energy_per_channel = self.calibrateEu(channel,counts)
+                energy_per_channel = self.calibrateEu(channel,counts) # keV
                 print energy_per_channel
             elif (fd == 1): #Co
 #                newcounts = []
@@ -316,9 +316,11 @@ class gammaSpectroscopy:
 
                 peakinds = (4736,5382)
                 resolution = self.compute_resolution(channel,counts,peakinds)
-                print "peaks = ",[i*energy_per_channel for i in peakinds]
+                peak_energies = [i*energy_per_channel for i in peakinds]
+                print "peaks = ",peak_energies
                 print "resolution =",resolution
-                self.peak_to_compton(channel,counts,peakinds)
+                peak2compton_ratio = self.peak_to_compton(energy_per_channel,counts,peak_energies)
+                print "peak to compton =",peak2compton_ratio
             elif (fd == 2): #Ho
 #                peakind = scipy.signal.find_peaks_cwt(counts,numpy.arange(30,50))
 
@@ -326,7 +328,11 @@ class gammaSpectroscopy:
                 resolution = self.compute_resolution(channel,counts,peakinds)
                 print "peaks = ",[i*energy_per_channel for i in peakinds]
                 print "resolution =",resolution
+                peak_energies = [i*energy_per_channel for i in peakinds]
+                self.moment_of_inertia(peak_energies)
             elif (fd == 3): #K
+                #peakinds = scipy.signal.find_peaks_cwt(counts,numpy.arange(80,130))
+                peakinds = 5890
                 snr = self.peak_to_background(channel,counts,peakinds)
                 print "snr =", snr
             
@@ -372,16 +378,22 @@ class gammaSpectroscopy:
         return resolution
 
     def peak_to_background(self,channel,counts,peakind):
-        print "peak to background:"
-        noiserange = [400,4200]
+        noiserange = [2000,4000]
         noise_avg = numpy.mean(counts[noiserange[0]:noiserange[1]])
-        all_snr = [counts[i]/noise_avg for i in peakind]
-        return numpy.mean(all_snr)
+        return counts[peakind]/noise_avg
 
-    def peak_to_compton(self,channel,counts,peakind):
-        print "peak to compton:"
-        plt.plot(channel,counts)
-        plt.show()
+    def peak_to_compton(self,energy_per_channel,counts,peak_energies):
+        compton_energy_range = [1040,1096]
+        channel_range = [int(i / energy_per_channel) for i in compton_energy_range]
+        compton_level = numpy.mean(counts[channel_range[0]:channel_range[1]])
+        peak2_to_compton = peak_energies[1] / compton_level
+        return peak2_to_compton
+
+    def moment_of_inertia(self,peak_energies):
+        print "moment of inertia",peak_energies
+        peak = peak_energies[0]
+        hbar = 4.135668E-15 #eV*s
+        moment = 6. * hbar**2 / ( 2 * peak )
 
 if __name__ == '__main__':
     conversionFactorFilename = "nuclife_data/conversion_factor.csv"
