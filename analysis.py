@@ -390,10 +390,26 @@ class gammaSpectroscopy:
         return peak2_to_compton
 
     def moment_of_inertia(self,peak_energies):
-        print "moment of inertia",peak_energies
+        print "moment of inertia"
         peak = peak_energies[0]
-        hbar = 4.135668E-15 #eV*s
-        moment = 6. * hbar**2 / ( 2 * peak )
+        hbar = 6.626E-34 # J*s
+        I_exp = 6. * (hbar**2) / ( 2. * (peak * 1000.)*1.602E-19 ) # eV
+
+        electron_mass = 0.00054858 # amu
+        mass_atomic = 164.93031 # amu
+        kg_per_amu = 1.6605E-27 # kg/amu
+        r_o = 176E-12 # m
+        mass = (mass_atomic - 67 * electron_mass) * kg_per_amu # kg
+        r_avg = r_o * (166 ** (1./3.)) # m
+        beta = 0
+        I_rigid = (2./5.) * mass * (r_avg ** 2) * (1 + 0.31 * beta) # J
+
+        delta_r = 0
+        beta = (4./3.) * numpy.sqrt( numpy.pi / 5. ) * delta_r / r_avg
+        beta = 0.29
+        I_fluid = (9./(8.*numpy.pi)) * mass * (r_avg ** 2) * (beta ** 2 ) # J
+
+        print I_rigid," >",I_exp," >",I_fluid
 
 if __name__ == '__main__':
     conversionFactorFilename = "nuclife_data/conversion_factor.csv"
