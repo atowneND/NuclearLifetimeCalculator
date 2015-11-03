@@ -62,9 +62,7 @@ class modernPhysicsLabData:
                     count_sum = count_sum + counts[i]
                 # increment number of adjacent nonzero bins
                 ctr = ctr + 1
-
                 last_nonzero = i
-
             # for zero counts
             else:
                 # if the counter isn't 0 => a peak was detected - ignore unfinished peaks
@@ -72,7 +70,6 @@ class modernPhysicsLabData:
                     # add last peak
                     all_peak_channels.append(peak_sum/count_sum)
                     all_peak_counts.append(count_sum)
-
                     # reset counters
                     ctr = 0
                     count_sum = 0
@@ -84,6 +81,8 @@ class modernPhysicsLabData:
                 true_peak_channels.append(all_peak_channels[i])
                 true_peak_counts.append(all_peak_counts[i])
 
+#        print "chan:",true_peak_channels
+#        print "diff:",numpy.diff(true_peak_channels)
         npoints = len(true_peak_counts)
         time_list = numpy.arange(len(true_peak_channels))*calibration_constant
 
@@ -91,6 +90,9 @@ class modernPhysicsLabData:
         if (npoints < 3):
             if (npoints == 2):
                 slope = (time_list[1]-time_list[0])/(true_peak_channels[1]-true_peak_channels[0])
+                errfac = 3.1937389/(true_peak_channels[1]-true_peak_channels[0])
+                print "calibration slope error =",errfac*slope
+                print "     slope =",slope
                 intercept = time_list[1]-true_peak_channels[1]*slope
                 r_val = 1
                 std_err = 0
@@ -213,17 +215,23 @@ class speedOfLight:
     def run_light_speed(self,lab):
         # read calibration file
         conversionFactorFilename = "lightspeed_data/conversion_factor.csv"
-#        conversionFactorFilename = "foo.csv"
         channel, counts = lab.read_CSV(conversionFactorFilename)
+        plt.plot(channel,counts)
+        plt.xlabel('Channel')
+        plt.ylabel('Counts')
+        plt.title('Calibration Data')
+        plt.show()
 
         # read distance data
         distanceFilename = "lightspeed_data/distance.csv"
-        peak, distance = lab.read_CSV(distanceFilename)
+        peak, distance_cm = lab.read_CSV(distanceFilename)
+        distance = map(lambda distance_cm: distance_cm/100., distance_cm)
 
         # find conversion
         mult_const = 0.01E-6 # 0.01E-6 usec
         time_per_channel, calibration_intercept, calibration_error, calibration_peaks = lab.peaks2line_weighted_avg(channel,counts,mult_const)
         m_D = 1/time_per_channel
+        print m_D
 
         # plot channel vs time
         x = numpy.arange(2000)
@@ -237,12 +245,18 @@ class speedOfLight:
         plt.legend(loc=2)
         plt.xlim(-0.1*1.2E-8,1.2E-8)
         plt.ylim(1000,2000)
-#        plt.show()
+        plt.text(5E-9,1100,"y = 8.124E10 * x + 1.345E-11")
+        plt.show()
 
-#        # read data
+        # read data
         datafilename = "lightspeed_data/Five_Peaks_readable.csv"
         data_channels, data_counts = lab.read_CSV(datafilename)
         data_time = lab.convert_channels_to_time(data_channels, time_per_channel)
+        plt.plot(data_channels,data_counts)
+        plt.xlabel('Channel')
+        plt.ylabel('Counts')
+        plt.title('Raw Data')
+        plt.show()
 
         # weighted average of five peaks
         t_center, data_intercept, data_error, data_channel_peaks = lab.peaks2line_weighted_avg(data_channels,data_counts,1)
@@ -250,21 +264,124 @@ class speedOfLight:
         x = numpy.arange(100.0)
         y = t_center*x + data_intercept
 
-#        plt.plot(x,y,'r-')
-#        plt.show()
-
         # channel v position
-        m_ch_v_pos, a,b,c,d = scipy.stats.linregress(data_channel_peaks,distance)
-        m_S = m_ch_v_pos/100
-        print m_D, m_S, 2 * m_D / m_S
-        plt.plot(distance,data_channel_peaks,'r.')
-        plt.ylabel('Channel')
-        plt.xlabel('Distance (cm)')
-#        plt.show()
+        m_ch_v_pos, a,b,c,data_err = scipy.stats.linregress(distance,data_channel_peaks)
+        m_S = m_ch_v_pos
+        print m_S
+        print "error =",data_err
+        c = 2 * m_D / m_S
+        print "speed of light =",c
+        c_ref = 2.99792458E8
+        print "diff =",c-c_ref
+        print "%diff =",(c-c_ref)/c_ref
         
-#        #plt.plot(data_channel_peaks,distance)
-#        # divide slope of ^ by time_per_channel
-#        # error - fit gaussian to five peaks
+        x = numpy.linspace(0,max(distance)+0.5,100)
+        y = m_ch_v_pos * x + a
+        plt.plot(distance,data_channel_peaks,'r.',label='Data')
+        plt.plot(x,y,'k-',label='Fit')
+        plt.legend(loc=2)
+        plt.text(0.05,1400,"y = 532.22 * x + 134.77")
+        plt.title('Channel vs. Distance')
+        plt.ylabel('Channel')
+        plt.xlabel('Distance (m)')
+        plt.show()
+
+class gammaSpectroscopy:
+    def __init__(self, **kwargs):
+        self.__dict__.update(**kwargs)
+
+    def run_gamma_spec(self,lab):
+        filename_list = ("gammaspec_data/Eu.csv", "gammaspec_data/Co.csv", "gammaspec_data/Ho.csv", "gammaspec_data/KCl.csv")
+        for fd in xrange(len(filename_list)):
+            channel, counts = lab.read_CSV(filename_list[fd])
+            print filename_list[fd]
+            if (fd == 0): #Eu
+                x=0
+                energy_per_channel = self.calibrateEu(channel,counts)
+                print energy_per_channel
+            elif (fd == 1): #Co
+#                newcounts = []
+#                for x in xrange(len(counts)):
+#                    if (counts[x] < 0.5*max(counts)):
+#                        newcounts.append(0)
+#                    else:
+#                        newcounts.append(counts[x])
+#
+#                peakind = scipy.signal.find_peaks_cwt(newcounts,numpy.arange(75,80),noise_perc = 90)
+#                peak_centers = []
+#                for i in peakind:
+#                    print i
+#                    max_counts, foo = (max(newcounts[i-40:i+40]))
+#                    #peak_centers.append(channel[max_counts])
+
+                peakinds = (4736,5382)
+                resolution = self.compute_resolution(channel,counts,peakinds)
+                print "peaks = ",[i*energy_per_channel for i in peakinds]
+                print "resolution =",resolution
+                self.peak_to_compton(channel,counts,peakinds)
+            elif (fd == 2): #Ho
+#                peakind = scipy.signal.find_peaks_cwt(counts,numpy.arange(30,50))
+
+                peakinds = (733,1121)
+                resolution = self.compute_resolution(channel,counts,peakinds)
+                print "peaks = ",[i*energy_per_channel for i in peakinds]
+                print "resolution =",resolution
+            elif (fd == 3): #K
+                snr = self.peak_to_background(channel,counts,peakinds)
+                print "snr =", snr
+            
+    def calibrateEu(self,channel,counts):
+        known_peaks = [121.7817, 244.6974, 344.2785] # keV
+        uncertainties = [.0003, .0008, .0012]
+
+        peakind = scipy.signal.find_peaks_cwt(counts,numpy.arange(10,50))
+
+        dchannel = numpy.diff(peakind[0:3])
+        denergy = numpy.diff(known_peaks)
+
+        calibration_constant = denergy[0]/dchannel[0]
+        return calibration_constant
+
+    def compute_resolution(self,channel,counts,peakind):
+        print "resolution:"
+        resolution = []
+        for x in peakind:
+            print "x =",x
+            half_max = 0.5 * counts[x]
+            i=1
+            done = 0
+            left = 0
+            right = 0
+            while (done!=1):
+                left_counts = counts[x-i]
+                right_counts = counts[x+i]
+                if (left_counts<half_max) & (left != 1):
+                    left_channel = channel[x-i+1]
+                    left = 1
+                if (right_counts<half_max) & (right != 1):
+                    right_channel = channel[x+i-1]
+                    right = 1
+                done = left & right
+                i = i + 1
+                if (i>10):
+                    break
+            fwhm = right_channel-left_channel+1
+            resolution.append(100. * fwhm / x)
+            print fwhm
+
+        return resolution
+
+    def peak_to_background(self,channel,counts,peakind):
+        print "peak to background:"
+        noiserange = [400,4200]
+        noise_avg = numpy.mean(counts[noiserange[0]:noiserange[1]])
+        all_snr = [counts[i]/noise_avg for i in peakind]
+        return numpy.mean(all_snr)
+
+    def peak_to_compton(self,channel,counts,peakind):
+        print "peak to compton:"
+        plt.plot(channel,counts)
+        plt.show()
 
 if __name__ == '__main__':
     conversionFactorFilename = "nuclife_data/conversion_factor.csv"
@@ -273,8 +390,10 @@ if __name__ == '__main__':
     # can only run light speed, not nuclear lifetime
 #    nuclife = nuclearLifetime()
     lab = modernPhysicsLabData()
-    light = speedOfLight()
-    light.run_light_speed(lab)
+#    light = speedOfLight()
+#    light.run_light_speed(lab)
+    gamma = gammaSpectroscopy()
+    gamma.run_gamma_spec(lab)
 
 ################################################################
 ## MOVE TO FUNCTION
