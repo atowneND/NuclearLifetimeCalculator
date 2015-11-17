@@ -294,11 +294,13 @@ class gammaSpectroscopy:
         filename_list = ("gammaspec_data/Eu.csv", "gammaspec_data/Co.csv", "gammaspec_data/Ho.csv", "gammaspec_data/KCl.csv")
         for fd in xrange(len(filename_list)):
             channel, counts = lab.read_CSV(filename_list[fd])
+            print ""
             print filename_list[fd]
             if (fd == 0): #Eu
                 x=0
                 energy_per_channel = self.calibrateEu(channel,counts) # keV
                 print energy_per_channel
+                plt.title("$^{152}$Eu")
             elif (fd == 1): #Co
 #                newcounts = []
 #                for x in xrange(len(counts)):
@@ -315,30 +317,57 @@ class gammaSpectroscopy:
 #                    #peak_centers.append(channel[max_counts])
 
                 peakinds = (4736,5382)
-                resolution = self.compute_resolution(channel,counts,peakinds)
+                resolution,res_err = self.compute_resolution(channel,counts,peakinds)
                 peak_energies = [i*energy_per_channel for i in peakinds]
                 print "peaks = ",peak_energies
-                print "resolution =",resolution
+                print "resolution =",resolution," +-",res_err
                 peak2compton_ratio = self.peak_to_compton(energy_per_channel,counts,peak_energies)
                 print "peak to compton =",peak2compton_ratio
+                plt.title("$^{60}$Co")
             elif (fd == 2): #Ho
-#                peakind = scipy.signal.find_peaks_cwt(counts,numpy.arange(30,50))
+                peakind = scipy.signal.find_peaks_cwt(counts,numpy.arange(30,50))
+                E_peaks = [i*energy_per_channel for i in peakind]
 
                 peakinds = (733,1121)
-                resolution = self.compute_resolution(channel,counts,peakinds)
+                
                 print "peaks = ",[i*energy_per_channel for i in peakinds]
-                print "resolution =",resolution
                 peak_energies = [i*energy_per_channel for i in peakinds]
-                self.moment_of_inertia(peak_energies)
+                all_energies = [i*energy_per_channel for i in channel]
+
+                peak_energies = [87.62,180.9,276.7,707.4,805.6,946.1,1236.3]
+                red_number = [1,2,3,4,6,8,9]
+                peak_energies = [87.62, 180.9, 276.7]
+                red_number = [1,2,3]
+                self.moment_of_inertia(peak_energies,red_number)
+                plt.title("$^{166}$Ho")
+#                plt.plot(all_energies,counts)
+#                plt.xlabel(E_peaks)
+#                plt.show()
             elif (fd == 3): #K
                 #peakinds = scipy.signal.find_peaks_cwt(counts,numpy.arange(80,130))
                 peakinds = 5890
+                print "peaks =",peakinds*energy_per_channel
+                resolution, res_err = self.compute_single_resolution(channel,counts,peakinds)
+                print "resolution =",resolution," +-",res_err
                 snr = self.peak_to_background(channel,counts,peakinds)
                 print "snr =", snr
+                plt.title("$^{40}$K")
+
+#            font = {'family' : 'normal',
+#                    'weight' : 'bold',
+#                    'size'   : 22}
+#            plt.rc('font',**font)
+#            energies = 0
+#            energies = [i*energy_per_channel for i in channel]
+#            plt.plot(energies,counts,linewidth=2.0)
+#            plt.xlabel("Energy (keV)")
+#            plt.ylabel("Counts")
+#            plt.show()
             
     def calibrateEu(self,channel,counts):
         known_peaks = [121.7817, 244.6974, 344.2785] # keV
         uncertainties = [.0003, .0008, .0012]
+        channel_uncertainties = [1.0, 1.0, 1.0]
 
         peakind = scipy.signal.find_peaks_cwt(counts,numpy.arange(10,50))
 
@@ -346,11 +375,20 @@ class gammaSpectroscopy:
         denergy = numpy.diff(known_peaks)
 
         calibration_constant = denergy[0]/dchannel[0]
+
+        energy_error = uncertainties[0] + uncertainties[1]
+        channel_error = channel_uncertainties[0] + channel_uncertainties[1]
+        percent_energy_error = energy_error / denergy[0]
+        percent_channel_error = channel_error / dchannel[0]
+        total_error = (percent_energy_error + percent_channel_error) * calibration_constant
+        print "calibration uncertainty =",total_error, percent_channel_error+percent_energy_error
+
         return calibration_constant
 
     def compute_resolution(self,channel,counts,peakind):
         print "resolution:"
         resolution = []
+        errors = []
         for x in peakind:
             print "x =",x
             half_max = 0.5 * counts[x]
@@ -373,9 +411,47 @@ class gammaSpectroscopy:
                     break
             fwhm = right_channel-left_channel+1
             resolution.append(100. * fwhm / x)
-            print fwhm
+            print "fwhm =",fwhm
+            channel_uncertainties = [1.0, 1.0, 1.0]
+            fwhm_channel_error = (channel_uncertainties[0] + channel_uncertainties[1]) / (fwhm)
+            peak_channel_error = channel_uncertainties[2] / x
+            errors.append((fwhm_channel_error+peak_channel_error)*100.*fwhm/x)
 
-        return resolution
+        return resolution,errors
+
+    def compute_single_resolution(self,channel,counts,peakind):
+#        plt.plot(channel,counts)
+#        plt.xlabel(peakind)
+        x = peakind
+        print "x =",x
+        half_max = 0.5 * counts[x]
+        i=1
+        done = 0
+        left = 0
+        right = 0
+        while (done!=1):
+            left_counts = counts[x-i]
+            right_counts = counts[x+i]
+            if (left_counts<half_max) & (left != 1):
+                left_channel = channel[x-i+1]
+                left = 1
+            if (right_counts<half_max) & (right != 1):
+                right_channel = channel[x+i-1]
+                right = 1
+            done = left & right
+            i = i + 1
+            if (i>50):
+                break
+        fwhm = right_channel-left_channel+1
+        resolution = (100. * fwhm / x)
+        print "fwhm =",fwhm,left_channel,right_channel
+        channel_uncertainties = [1.0, 1.0, 1.0]
+        fwhm_channel_error = (channel_uncertainties[0] + channel_uncertainties[1]) / (fwhm)
+        peak_channel_error = channel_uncertainties[2] / x
+        errors = (fwhm_channel_error+peak_channel_error)*100.*fwhm/x
+#        print "error (percent, abs)=",fwhm_channel_error+peak_channel_error,(fwhm_channel_error+peak_channel_error)*100.*fwhm/x
+
+        return resolution,errors
 
     def peak_to_background(self,channel,counts,peakind):
         noiserange = [2000,4000]
@@ -389,27 +465,126 @@ class gammaSpectroscopy:
         peak2_to_compton = peak_energies[1] / compton_level
         return peak2_to_compton
 
-    def moment_of_inertia(self,peak_energies):
+    def moment_of_inertia(self,peak_energies,red_number):
         print "moment of inertia"
         peak = peak_energies[0]
-        hbar = 6.626E-34 # J*s
-        I_exp = 6. * (hbar**2) / ( 2. * (peak * 1000.)*1.602E-19 ) # eV
+        print "peak =",peak
+        hbar = 1.055E-34 # J*s
+        I_exp = 6. * (hbar**2) / ( 2. * (peak * 1000.)*1.602E-19 ) # J
+        print "ANS:",I_exp,"J;",I_exp * 1.602E-19,"eV"
 
+        ll1 = []
+        E_diffs = []
+        hbar = 6.582E-16
+        E_peaks = [i*1000 for i in peak_energies]
+        print red_number,E_peaks
+        for i in xrange(len(red_number)):
+            ll1.append(red_number[i] * (red_number[i] + 1) * (hbar ** 2) / 2)
+
+        E_diffs = E_peaks
+        slope, intercept, r_val, p_val, std_err  = scipy.stats.linregress(ll1,E_diffs)
+        print "slope =",slope
+        I_exp = (1./slope) * 1.602E-19
         electron_mass = 0.00054858 # amu
         mass_atomic = 164.93031 # amu
         kg_per_amu = 1.6605E-27 # kg/amu
         r_o = 176E-12 # m
+
         mass = (mass_atomic - 67 * electron_mass) * kg_per_amu # kg
         r_avg = r_o * (166 ** (1./3.)) # m
         beta = 0
+        print "mass, ravg =",mass,r_avg
         I_rigid = (2./5.) * mass * (r_avg ** 2) * (1 + 0.31 * beta) # J
 
-        delta_r = 0
-        beta = (4./3.) * numpy.sqrt( numpy.pi / 5. ) * delta_r / r_avg
         beta = 0.29
         I_fluid = (9./(8.*numpy.pi)) * mass * (r_avg ** 2) * (beta ** 2 ) # J
 
         print I_rigid," >",I_exp," >",I_fluid
+
+#,        plt.plot(ll1,E_diffs)
+#        plt.show()
+
+class Compton:
+    def __init__(self, **kwargs):
+        self.__dict__.update(**kwargs)
+
+    def runCompton(self,lab):
+        date_list = [1110]
+        theta_list = [20,30,45,60,75,90,105,120,135]
+        calfile = "compton/calibration_" + str(date_list[0]) + ".csv"
+        cal_files = ["compton/calibration_" + str(i) + ".csv" for i in date_list]
+
+        for d in date_list:
+            calfile = "compton/calibration_" + str(d) + ".csv"
+            cal_channel, cal_counts = lab.read_CSV(calfile)
+            if (d==1110):
+                print "Calibrating:"
+#                peak1 = scipy.signal.find_peaks_cwt(cal_counts[0:2000],numpy.arange(200,400))
+#                peak2 = scipy.signal.find_peaks_cwt(cal_counts[5000:8000],numpy.arange(1000,1500))
+                peak1=[328,1836]
+                peak2 = [5117, 6448, 7821] 
+                peaks = [328, 6448]
+                energy_per_channel = self.calibrateCs(peaks) #keV
+            for t in theta_list:
+                channel, counts = self.filterNoise(t, d)
+                energies = [ch * energy_per_channel for ch in channel]
+                peaks = scipy.signal.find_peaks_cwt(counts,numpy.arange(600,1500))
+#                print all_peaks
+#                peaks = [i for i in peaks]
+#                peaks = [6006, 6024, 6031, 6034]
+#                plt.plot(channel,counts)
+#                plt.xlabel(peaks)
+#                plt.show()
+
+                # find energy for each peak
+#                peaks = [6006, 6024, 6031, 6034]
+                peak_energies = [ch * float(energy_per_channel) for ch in peaks] #keV
+                # plug into compton equation
+                output_filename = "Cu_" + str(t) + "_peaks.data"
+                f = open(output_filename,'w')
+                f.write("E'(keV)\t E'/E\tcross section(m^-2)\n")
+                for e in peak_energies:
+                    f.write(str(e) + ' ')
+
+                    e_gamma = self.comptonEquation(t, e)
+                    ratio = e / e_gamma
+                    f.write(str(ratio) + ' ')
+
+                    cross_section = self.klein_nishina(t,e)
+                    f.write(str(cross_section))
+                    f.write('\n')
+
+    def klein_nishina(self, theta, energy):
+        m_e = 9.11E-31 #kg
+        c = 3E8 #m/s
+        alpha = energy / (m_e * c**2 * 1000/1.602E-19)
+        r0 = 2.818E-15 #m
+
+        dsigma = (r0**2 / (1+ alpha*(1-numpy.cos(theta)))**3) * (1+ (alpha*(1-numpy.cos(theta)))**2/((1+numpy.cos(theta)**2)*(1+alpha*(1-numpy.cos(theta)))))
+        return dsigma
+
+    def comptonEquation(self, theta, energy):
+        m_e = 9.11E-31 #kg
+        c = 3E8 #m/s
+        mc2_kev = (m_e * c**2) / (1.602E-19 / 1000) #keV
+        E_out = energy / (1- (energy / mc2_kev)*(1-numpy.cos(theta)))
+        return E_out
+
+    def filterNoise(self,angle,date):
+        data_file = "compton/Cu_" + str(angle) + "_data_" + str(date) + ".csv"
+        data_channel, data_counts = lab.read_CSV(data_file)
+        noise_file = "compton/Cu_" + str(angle) + "_noise_" + str(date) + ".csv"
+        noise_channel, noise_counts = lab.read_CSV(noise_file)
+        channel = data_channel
+        counts = [data_counts[index] - noise_counts[index] for index in xrange(len(data_counts))]
+        return channel, counts
+
+    def calibrateCs(self,peaks):
+        known_energies = [32., 662.] #keV
+        print peaks
+        print known_energies
+        energy_per_channel = numpy.diff(known_energies) / numpy.diff(peaks)
+        return energy_per_channel
 
 if __name__ == '__main__':
     conversionFactorFilename = "nuclife_data/conversion_factor.csv"
@@ -420,8 +595,10 @@ if __name__ == '__main__':
     lab = modernPhysicsLabData()
 #    light = speedOfLight()
 #    light.run_light_speed(lab)
-    gamma = gammaSpectroscopy()
-    gamma.run_gamma_spec(lab)
+#    gamma = gammaSpectroscopy()
+#    gamma.run_gamma_spec(lab)
+    scatter = Compton()
+    scatter.runCompton(lab)
 
 ################################################################
 ## MOVE TO FUNCTION
